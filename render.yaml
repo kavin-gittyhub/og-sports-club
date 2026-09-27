@@ -1,0 +1,54 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# One web service (API + built React app) and one PostgreSQL database.
+# Render → New → Blueprint → pick this repo. Secrets marked `sync: false`
+# are asked for during setup.
+
+databases:
+  - name: og-sports-db
+    databaseName: og_sports
+    user: og_sports
+    plan: basic-256mb        # the free plan expires after 30 days — use a paid plan for a real club
+    region: singapore        # closest Render region to India
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: og-sports-club
+    runtime: node
+    plan: starter            # free instances sleep, which delays payments/webhooks — use starter or above
+    region: singapore
+    buildCommand: npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: og-sports-db
+          property: connectionString
+      - key: DATABASE_SSL
+        value: "false"       # internal connection string; set true if you use the external URL
+      - key: CLUB_TIMEZONE
+        value: Asia/Kolkata
+      - key: PUBLIC_URL
+        sync: false          # e.g. https://og-sports-club.onrender.com or your custom domain
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: VITE_CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: PAYMENT_PROVIDER
+        value: razorpay
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: RUN_MIGRATIONS_ON_START
+        value: "true"
