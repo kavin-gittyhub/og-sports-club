@@ -7,7 +7,7 @@ databases:
   - name: og-sports-db
     databaseName: og_sports
     user: og_sports
-    plan: basic-256mb        # the free plan expires after 30 days — use a paid plan for a real club
+    plan: free        # the free plan expires after 30 days — use a paid plan for a real club
     region: singapore        # closest Render region to India
     postgresMajorVersion: "16"
 
@@ -15,7 +15,7 @@ services:
   - type: web
     name: og-sports-club
     runtime: node
-    plan: starter            # free instances sleep, which delays payments/webhooks — use starter or above
+    plan: free         # free instances sleep, which delays payments/webhooks — use starter or above
     region: singapore
     buildCommand: npm run build
     startCommand: npm start
