@@ -10,6 +10,7 @@ import {
 } from '../services/bookings.js';
 import { startCheckout, verifyCheckout, markPaymentFailed, refundBooking } from '../services/payments.js';
 import { getSettings } from '../services/settings.js';
+import { payAtVenue } from '../config.js';
 
 export const customerRouter = express.Router();
 customerRouter.use(requireAuth);
@@ -83,8 +84,12 @@ customerRouter.post('/bookings', bookingLimiter, async (req, res) => {
     durationMin: v.int(body.durationMin, 'durationMin', { min: 5, max: 1440 }),
     bowlingMachine,
     quantity: v.int(body.quantity ?? 1, 'quantity', { min: 1, max: 50 }),
+    payAtVenue: payAtVenue(),
     ip: req.ip,
   });
+  if (payAtVenue()) {
+    return res.status(201).json({ booking: customerBookingView(booking, fg, await getSettings()), checkout: null });
+  }
   let checkout;
   try {
     checkout = await startCheckout({ booking, user: req.user });
@@ -98,6 +103,7 @@ customerRouter.post('/bookings', bookingLimiter, async (req, res) => {
 
 customerRouter.post('/bookings/:id/pay', bookingLimiter, async (req, res) => {
   const b = await loadOwnBooking(req);
+  if (payAtVenue()) throw badRequest('Online payment is not available. Please pay at the club.', 'PAY_AT_VENUE');
   if (b.status !== 'pending_payment' || (b.hold_expires_at && new Date(b.hold_expires_at) < new Date())) {
     throw badRequest('This booking can no longer be paid for. Please make a new booking.', 'HOLD_EXPIRED');
   }
@@ -124,6 +130,11 @@ customerRouter.get('/bookings/:id/extensions', async (req, res) => {
 customerRouter.post('/bookings/:id/extensions', bookingLimiter, async (req, res) => {
   const b = await loadOwnBooking(req);
   const minutes = v.int(req.body?.minutes, 'minutes', { min: 5, max: 240 });
+  if (payAtVenue()) {
+    const { booking } = await createExtension({ bookingId: b.id, user: req.user, minutes, confirmNow: true, ip: req.ip });
+    const fg = await getFacilityById(booking.facility_group_id);
+    return res.status(201).json({ checkout: null, outcome: 'extended', booking: customerBookingView(booking, fg, await getSettings()) });
+  }
   const { booking, extension } = await createExtension({ bookingId: b.id, user: req.user, minutes, ip: req.ip });
   res.status(201).json({ checkout: await startCheckout({ booking, extension, user: req.user }) });
 });

@@ -128,7 +128,7 @@ export async function getBookingUnits(db, bookingId) {
  * @param {object} p.actor who performs the action (customer or admin)
  * @param {object} [p.admin] admin-only options: { resourceIds, paymentMode, amountOverride, notes }
  */
-export async function createBooking({ fg, user, actor, date, startMinute, durationMin, bowlingMachine = false, quantity = 1, admin = null, ip }) {
+export async function createBooking({ fg, user, actor, date, startMinute, durationMin, bowlingMachine = false, quantity = 1, admin = null, payAtVenue = false, ip }) {
   if (bowlingMachine && !fg.supports_bowling_machine) {
     throw badRequest('The bowling machine is only available with Cricket Nets.', 'ADDON_NOT_ALLOWED');
   }
@@ -181,6 +181,11 @@ export async function createBooking({ fg, user, actor, date, startMinute, durati
         status = 'confirmed';
         paymentStatus = admin.paymentMode === 'pay_at_venue' ? 'pay_at_venue' : 'paid';
         if (Number.isInteger(admin.amountOverride)) total = admin.amountOverride;
+      } else if (payAtVenue) {
+        // Online payment is off: confirm now, the customer pays at the club.
+        holdExpiresAt = null;
+        status = 'confirmed';
+        paymentStatus = 'pay_at_venue';
       }
 
       const booking = await insertBooking(client, {
@@ -406,7 +411,7 @@ export async function getExtensionOptions({ bookingId, user }) {
   return opts;
 }
 
-export async function createExtension({ bookingId, user, minutes, ip }) {
+export async function createExtension({ bookingId, user, minutes, confirmNow = false, ip }) {
   const settings = await getSettings();
   if (!settings.booking_policy.extension_options.includes(minutes)) throw badRequest('Choose a valid extension.', 'VALIDATION');
   try {
@@ -434,6 +439,19 @@ export async function createExtension({ bookingId, user, minutes, ip }) {
         if (i === 0) ext = row;
       }
       ext.amount = check.amount;
+      if (confirmNow) {
+        // Pay-at-venue mode: availability was checked under the facility lock above, so confirm straight away.
+        // Moving end_at extends every unit via the trigger (and the overlap guard re-checks).
+        await client.query(`UPDATE booking_extensions SET status = 'confirmed', updated_at = now() WHERE batch_id = $1`, [batchId]);
+        const { rows: [updated] } = await client.query(
+          `UPDATE bookings SET end_at = $2, extension_amount = extension_amount + $3, total_amount = total_amount + $3, updated_at = now()
+           WHERE id = $1 RETURNING *`,
+          [b.id, check.end, check.amount]
+        );
+        await audit({ db: client, actor: user, ip, action: 'booking.extended', entityType: 'booking', entityId: b.id,
+          details: { ref: b.booking_ref, minutes, amount: check.amount, payment: 'pay_at_venue' } });
+        return { booking: updated, extension: { ...ext, status: 'confirmed' } };
+      }
       await audit({ db: client, actor: user, ip, action: 'booking.extension_requested', entityType: 'booking', entityId: b.id,
         details: { ref: b.booking_ref, minutes, amount: check.amount } });
       return { booking: b, extension: ext };

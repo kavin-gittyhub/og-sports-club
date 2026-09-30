@@ -7,7 +7,7 @@ databases:
   - name: og-sports-db
     databaseName: og_sports
     user: og_sports
-    plan: free        # the free plan expires after 30 days — use a paid plan for a real club
+    plan: free               # demo: expires after 30 days. For the real club use basic-256mb
     region: singapore        # closest Render region to India
     postgresMajorVersion: "16"
 
@@ -15,7 +15,7 @@ services:
   - type: web
     name: og-sports-club
     runtime: node
-    plan: free         # free instances sleep, which delays payments/webhooks — use starter or above
+    plan: free               # demo: sleeps when idle. For the real club use starter
     region: singapore
     buildCommand: npm run build
     startCommand: npm start
@@ -42,13 +42,10 @@ services:
         sync: false
       - key: VITE_CLERK_PUBLISHABLE_KEY
         sync: false
+      # venue = customers pay at the club (no online payment).
+      # To take UPI/online payments: set this to razorpay and add
+      # RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET and RAZORPAY_WEBHOOK_SECRET.
       - key: PAYMENT_PROVIDER
-        value: razorpay
-      - key: RAZORPAY_KEY_ID
-        sync: false
-      - key: RAZORPAY_KEY_SECRET
-        sync: false
-      - key: RAZORPAY_WEBHOOK_SECRET
-        sync: false
+        value: venue
       - key: RUN_MIGRATIONS_ON_START
         value: "true"

@@ -113,7 +113,7 @@ export function SiteFooter() {
           {c.address && <span><Icon name="mapPin" size={16} />{c.address}</span>}
         </div>
       </div>
-      <div className="container footer-bottom">© {new Date().getFullYear()} {c.name || 'OG Sports Club'} · Secure payments by Razorpay</div>
+      <div className="container footer-bottom">© {new Date().getFullYear()} {c.name || 'OG Sports Club'} {config?.paymentProvider === 'venue' ? '' : ' · Secure payments by Razorpay'}</div>
     </footer>
   );
 }

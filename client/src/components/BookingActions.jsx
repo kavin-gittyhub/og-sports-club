@@ -60,8 +60,8 @@ export function ExtendDialog({ booking, open, onClose, onDone }) {
   const choose = async (opt) => {
     setBusy(opt.minutes);
     try {
-      const { checkout } = await api(`/bookings/${booking.id}/extensions`, { method: 'POST', body: { minutes: opt.minutes } });
-      const result = await pay(checkout, { mockPay });
+      const res = await api(`/bookings/${booking.id}/extensions`, { method: 'POST', body: { minutes: opt.minutes } });
+      const result = res.checkout ? await pay(res.checkout, { mockPay }) : res;
       if (result.outcome === 'extended') toast.success(`Extended — you now play until ${fmtMin(result.booking.endMinute)}.`);
       else toast.error('Sorry, that time was taken while you were paying. You have been refunded.');
       onDone?.(result.booking);

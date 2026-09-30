@@ -341,8 +341,8 @@ export default function Book() {
     { id: 'date', title: 'Choose a date' },
     { id: 'time', title: 'Choose a time' },
     ...(facility?.bowlingMachine ? [{ id: 'extras', title: 'Add-ons' }] : []),
-    { id: 'review', title: 'Review & pay' },
-  ], [facility]);
+    { id: 'review', title: config?.paymentProvider === 'venue' ? 'Review & book' : 'Review & pay' },
+  ], [facility, config?.paymentProvider]);
   const index = Math.max(0, steps.findIndex((s) => s.id === stepId));
   const go = (id) => { setStepId(id); window.scrollTo({ top: 0 }); };
 
@@ -457,6 +457,12 @@ export default function Book() {
           body: { facility: slug, date, startMinute: start, durationMin: duration, bowlingMachine: bowling, quantity, phone: cleanPhone || undefined },
         });
         if (cleanPhone) refreshMe();
+        if (!res.checkout) {
+          // Pay-at-venue mode: the booking is already confirmed.
+          clearDraft();
+          navigate(`/booking/${res.booking.id}?new=1`);
+          return;
+        }
         setPending(res);
         await runPayment(res.checkout);
       }
@@ -547,7 +553,9 @@ export default function Book() {
               </Field>
             )}
             <ul className="assurances">
-              <li><Icon name="shield" size={18} />Secure payment via Razorpay — UPI, cards, netbanking</li>
+              {config?.paymentProvider === 'venue'
+                ? <li><Icon name="rupee" size={18} />Pay at the club — cash or UPI at the counter</li>
+                : <li><Icon name="shield" size={18} />Secure payment via Razorpay — UPI, cards, netbanking</li>}
               <li><Icon name="refresh" size={18} />Free cancellation up to {config?.policy?.cancellationCutoffHours ?? 4} hours before start</li>
               <li><Icon name="clock" size={18} />Need more time? Extend from My bookings if the next slot is free</li>
             </ul>
@@ -567,7 +575,7 @@ export default function Book() {
             </div>
             {stepId === 'review' ? (
               <Button size="lg" onClick={proceed} loading={paying} disabled={!quote?.available} iconRight="arrowRight">
-                {isSignedIn ? 'Proceed to Payment' : 'Sign in to pay'}
+                {config?.paymentProvider === 'venue' ? (isSignedIn ? 'Confirm Booking' : 'Sign in to book') : isSignedIn ? 'Proceed to Payment' : 'Sign in to pay'}
               </Button>
             ) : (
               <Button size="lg" onClick={next} disabled={start === null || (stepId === 'time' && !quote)} iconRight="arrowRight">Continue</Button>

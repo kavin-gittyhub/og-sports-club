@@ -40,7 +40,7 @@ export const config = {
   devAuth: bool(env.DEV_AUTH, false),
 
   // Payments
-  paymentProvider: (env.PAYMENT_PROVIDER || 'razorpay').toLowerCase(), // razorpay | mock
+  paymentProvider: (env.PAYMENT_PROVIDER || 'razorpay').toLowerCase(), // razorpay | venue (pay at the club) | mock (dev only)
   razorpayKeyId: env.RAZORPAY_KEY_ID || '',
   razorpayKeySecret: env.RAZORPAY_KEY_SECRET || '',
   razorpayWebhookSecret: env.RAZORPAY_WEBHOOK_SECRET || '',
@@ -49,6 +49,9 @@ export const config = {
   runMigrationsOnStart: bool(env.RUN_MIGRATIONS_ON_START, true),
   seedDemoData: bool(env.SEED_DEMO_DATA, false),
 };
+
+/** Online payment is switched off: bookings are confirmed straight away and paid at the club. */
+export const payAtVenue = () => config.paymentProvider === 'venue';
 
 export function assertConfig() {
   const problems = [];
@@ -64,7 +67,7 @@ export function assertConfig() {
   } else if (!config.clerkSecretKey && !config.devAuth) {
     problems.push('Set CLERK_SECRET_KEY, or DEV_AUTH=true for local development');
   }
-  if (!['razorpay', 'mock'].includes(config.paymentProvider)) problems.push('PAYMENT_PROVIDER must be razorpay or mock');
+  if (!['razorpay', 'venue', 'mock'].includes(config.paymentProvider)) problems.push('PAYMENT_PROVIDER must be razorpay, venue or mock');
   if (problems.length) {
     const err = new Error('Invalid configuration:\n  - ' + problems.join('\n  - '));
     err.code = 'CONFIG';
