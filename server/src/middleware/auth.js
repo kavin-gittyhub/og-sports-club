@@ -36,10 +36,33 @@ async function fetchClerkProfile(clerkUserId) {
   }
 }
 
+// Role set in Clerk dashboard → Users → (user) → Metadata → Public: { "role": "admin" }
+// Cached briefly so we don't call Clerk's API on every request.
+const ROLE_TTL_MS = 60 * 1000;
+const roleCache = new Map(); // clerkUserId -> { role, at }
+
+async function fetchClerkRole(clerkUserId, sessionClaims) {
+  // Fast path: if a Clerk session-token template exposes the metadata, use it.
+  const claimRole = sessionClaims?.metadata?.role ?? sessionClaims?.public_metadata?.role;
+  if (claimRole) return String(claimRole).toLowerCase();
+
+  const hit = roleCache.get(clerkUserId);
+  if (hit && Date.now() - hit.at < ROLE_TTL_MS) return hit.role;
+  try {
+    const u = await clerk.clerkClient.users.getUser(clerkUserId);
+    const role = u.publicMetadata?.role ? String(u.publicMetadata.role).toLowerCase() : null;
+    roleCache.set(clerkUserId, { role, at: Date.now() });
+    return role;
+  } catch (err) {
+    console.error('[auth] could not load Clerk role', err.message);
+    return hit?.role ?? null; // keep last known value on a temporary failure
+  }
+}
+
 async function identify(req) {
   if (clerk) {
     const auth = clerk.getAuth(req);
-    if (auth?.userId) return { externalId: auth.userId, source: 'clerk' };
+    if (auth?.userId) return { externalId: auth.userId, source: 'clerk', sessionClaims: auth.sessionClaims };
   }
   if (config.devAuth && !config.isProduction) {
     const email = String(req.get('x-dev-user') || '').trim().toLowerCase();
@@ -73,9 +96,22 @@ async function loadOrCreateUser(identity) {
       )).rows[0];
     }
   }
-  // Bootstrap admins from ADMIN_EMAILS (promotion only; demotion is done in the admin UI).
-  if (user.role !== 'admin' && user.email && config.adminEmails.includes(user.email.toLowerCase())) {
-    user = (await query(`UPDATE users SET role = 'admin', updated_at = now() WHERE id = $1 RETURNING *`, [user.id])).rows[0];
+  // 1) Clerk dashboard is the main source of admin access:
+  //    publicMetadata.role = "admin"    → admin
+  //    publicMetadata.role = "customer" → admin access removed
+  //    (no role set)                    → keep whatever the database says
+  //    (so admins granted from Admin → Customers keep working)
+  let wanted = null;
+  if (identity.source === 'clerk') {
+    const clerkRole = await fetchClerkRole(identity.externalId, identity.sessionClaims);
+    if (clerkRole === 'admin' || clerkRole === 'customer') wanted = clerkRole;
+  }
+  // 2) Optional fallback: ADMIN_EMAILS (promotion only). Can be left empty.
+  if (!wanted && user.role !== 'admin' && user.email && config.adminEmails.includes(user.email.toLowerCase())) {
+    wanted = 'admin';
+  }
+  if (wanted && wanted !== user.role) {
+    user = (await query(`UPDATE users SET role = $2, updated_at = now() WHERE id = $1 RETURNING *`, [user.id, wanted])).rows[0];
   }
   return user;
 }
