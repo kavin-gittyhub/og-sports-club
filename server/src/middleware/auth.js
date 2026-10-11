@@ -131,7 +131,26 @@ export async function requireAuth(req, res, next) {
   next();
 }
 
+// DEMO_OPEN_ADMIN: a shared "Demo Admin" account used when a visitor opens /admin without signing in,
+// so bookings, blocks and audit-log entries still have an owner.
+let demoAdminCache = null;
+async function getDemoAdmin() {
+  if (demoAdminCache) return demoAdminCache;
+  demoAdminCache = (await query(
+    `INSERT INTO users (clerk_user_id, email, name, role) VALUES ('demo_admin', 'demo-admin@demo.local', 'Demo Admin', 'admin')
+     ON CONFLICT (clerk_user_id) DO UPDATE SET role = 'admin', is_blocked = false, updated_at = now() RETURNING *`
+  )).rows[0];
+  return demoAdminCache;
+}
+
 export async function requireAdmin(req, res, next) {
+  if (config.demoOpenAdmin) {
+    const identity = await identify(req);
+    // Signed-in visitors act as themselves (role raised for this request only, nothing saved);
+    // everyone else acts as the shared Demo Admin.
+    req.user = identity ? { ...(await loadOrCreateUser(identity)), role: 'admin' } : await getDemoAdmin();
+    return next();
+  }
   await requireAuth(req, res, () => {});
   if (req.user.role !== 'admin') throw forbidden('Admin access only.');
   next();

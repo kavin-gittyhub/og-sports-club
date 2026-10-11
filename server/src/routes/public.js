@@ -25,6 +25,7 @@ publicRouter.get('/config', async (req, res) => {
     timezone: config.timezone,
     today: todayInZone(config.timezone),
     paymentProvider: config.paymentProvider === 'venue' ? 'venue' : config.paymentProvider === 'mock' && !config.isProduction ? 'mock' : 'razorpay',
+    demoOpenAdmin: config.demoOpenAdmin,
     auth: config.clerkSecretKey ? 'clerk' : config.devAuth && !config.isProduction ? 'dev' : 'none',
   });
 });

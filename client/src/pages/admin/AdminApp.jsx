@@ -38,7 +38,7 @@ const NAV = [
 
 function Nav({ onNavigate }) {
   const { path } = useLocation();
-  const { signOut, displayName } = useSession();
+  const { signOut, displayName, isSignedIn } = useSession();
   const isActive = (n) => (n.exact ? path === n.to : path === n.to || (path.startsWith(n.to + '/') && !NAV.some((m) => m.to && m.to !== n.to && m.to.startsWith(n.to) && path.startsWith(m.to))));
   return (
     <nav className="admin-nav" aria-label="Admin" onClick={(e) => { if (e.target.closest('a')) onNavigate?.(); }}>
@@ -48,19 +48,20 @@ function Nav({ onNavigate }) {
         : <Link key={n.to} to={n.to} className={isActive(n) ? 'active' : ''}><Icon name={n.icon} size={19} />{n.label}</Link>))}
       <div className="admin-nav-foot">
         <Link to="/"><Icon name="home" size={19} />View website</Link>
-        <a href="#signout" onClick={(e) => { e.preventDefault(); signOut(); }}><Icon name="logout" size={19} />Sign out{displayName ? ` (${displayName})` : ''}</a>
+        {isSignedIn && <a href="#signout" onClick={(e) => { e.preventDefault(); signOut(); }}><Icon name="logout" size={19} />Sign out{displayName ? ` (${displayName})` : ''}</a>}
       </div>
     </nav>
   );
 }
 
 export default function AdminApp() {
-  const { isLoaded, isSignedIn, signIn, me, meLoading, isAdmin } = useSession();
+  const { isLoaded, isSignedIn, signIn, me, meLoading, isAdmin, config } = useSession();
   const [drawer, setDrawer] = useState(false);
   const { path } = useLocation();
+  const demoOpen = Boolean(config?.demoOpenAdmin);
 
-  if (!isLoaded || (isSignedIn && !me && meLoading)) return <div className="page-loader"><Spinner size={28} /></div>;
-  if (!isSignedIn) {
+  if (!isLoaded || !config || (isSignedIn && !me && meLoading)) return <div className="page-loader"><Spinner size={28} /></div>;
+  if (!isSignedIn && !demoOpen) {
     return (
       <main className="container page narrow">
         <Empty icon="shield" title="Admin sign in" action={<Button onClick={signIn}>Sign in</Button>}>Sign in with an admin account to manage the club.</Empty>

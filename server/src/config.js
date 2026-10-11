@@ -38,6 +38,8 @@ export const config = {
   clerkPublishableKey: env.CLERK_PUBLISHABLE_KEY || env.VITE_CLERK_PUBLISHABLE_KEY || '',
   adminEmails: (env.ADMIN_EMAILS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
   devAuth: bool(env.DEV_AUTH, false),
+  // DEMO ONLY: when true, anyone who opens /admin gets full admin access — no sign-in, no admin email needed.
+  demoOpenAdmin: bool(env.DEMO_OPEN_ADMIN, false),
 
   // Payments
   paymentProvider: (env.PAYMENT_PROVIDER || 'razorpay').toLowerCase(), // razorpay | venue (pay at the club) | mock (dev only)
@@ -68,6 +70,7 @@ export function assertConfig() {
     problems.push('Set CLERK_SECRET_KEY, or DEV_AUTH=true for local development');
   }
   if (!['razorpay', 'venue', 'mock'].includes(config.paymentProvider)) problems.push('PAYMENT_PROVIDER must be razorpay, venue or mock');
+  if (config.demoOpenAdmin) console.warn('[auth] ⚠ DEMO_OPEN_ADMIN=true — the admin dashboard is open to EVERYONE. Turn this off before real use.');
   if (problems.length) {
     const err = new Error('Invalid configuration:\n  - ' + problems.join('\n  - '));
     err.code = 'CONFIG';

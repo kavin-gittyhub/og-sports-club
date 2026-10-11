@@ -47,5 +47,8 @@ services:
       # RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET and RAZORPAY_WEBHOOK_SECRET.
       - key: PAYMENT_PROVIDER
         value: venue
+      # DEMO ONLY: "true" opens the admin dashboard to everyone (no sign-in). Set to "false" for the real club.
+      - key: DEMO_OPEN_ADMIN
+        value: "true"
       - key: RUN_MIGRATIONS_ON_START
         value: "true"

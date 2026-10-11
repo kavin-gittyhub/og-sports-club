@@ -39,7 +39,7 @@ function SessionState({ base, children }) {
   useEffect(() => { if (base.isLoaded) refreshMe(); }, [base.isLoaded, base.isSignedIn, refreshMe]);
 
   const value = useMemo(() => ({
-    ...base, me, meLoading, refreshMe, config, isAdmin: me?.role === 'admin',
+    ...base, me, meLoading, refreshMe, config, isAdmin: me?.role === 'admin' || Boolean(config?.demoOpenAdmin),
   }), [base, me, meLoading, refreshMe, config]);
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 }
